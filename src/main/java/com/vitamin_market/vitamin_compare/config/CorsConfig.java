@@ -12,7 +12,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**") // Tüm endpoint'ler için geçerli
-                .allowedOrigins("https://vitamin-app.vercel.app") // Frontend'in adresini ekle
+                .allowedOrigins("https://vitamin-compare-web.vercel.app/") // Frontend'in adresini ekle
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Kullanılacak HTTP metotları
                 .allowedHeaders("*") // Tüm header'lara izin ver
                 .allowCredentials(true); // Eğer oturum yönetimi (cookie, token) kullanıyorsan true olmalı
