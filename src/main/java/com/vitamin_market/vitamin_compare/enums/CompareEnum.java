@@ -1,4 +1,4 @@
-package com.vitamin_market.vitamin_compare.domain;
+package com.vitamin_market.vitamin_compare.enums;
 
 public enum CompareEnum {
 

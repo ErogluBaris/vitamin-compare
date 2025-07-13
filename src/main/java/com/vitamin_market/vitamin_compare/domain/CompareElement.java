@@ -1,5 +1,6 @@
 package com.vitamin_market.vitamin_compare.domain;
 
+import com.vitamin_market.vitamin_compare.enums.CompareEnum;
 import lombok.Getter;
 import lombok.Setter;
 

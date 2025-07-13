@@ -1,14 +1,18 @@
 package com.vitamin_market.vitamin_compare.service;
 
-import com.vitamin_market.vitamin_compare.domain.*;
+import com.vitamin_market.vitamin_compare.domain.CompareElement;
+import com.vitamin_market.vitamin_compare.domain.CompareHeader;
+import com.vitamin_market.vitamin_compare.domain.CompareRow;
+import com.vitamin_market.vitamin_compare.domain.ContentCompare;
 import com.vitamin_market.vitamin_compare.entity.Content;
 import com.vitamin_market.vitamin_compare.entity.VitaminDocument;
+import com.vitamin_market.vitamin_compare.enums.CompareEnum;
+import com.vitamin_market.vitamin_compare.enums.ContentTypeEnum;
 import com.vitamin_market.vitamin_compare.regex.ContentMatcher;
 import com.vitamin_market.vitamin_compare.request.VitaminCompareRequest;
 import com.vitamin_market.vitamin_compare.response.VitaminCompareResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -20,32 +24,80 @@ import java.util.stream.Collectors;
 public class VitaminCompareService {
 
     private static final String DEFAULT_AMOUNT = "-";
-    private static final String VITAMIN_CONTENT = "Vitamin İçeriği";
-    private static final String MINERAL_CONTENT = "Mineral İçeriği";
-    private static final String OTHER_CONTENT = "Diğer İçerik";
 
     private final VitaminService vitaminService;
 
-    public VitaminCompareResponse getVitaminCompareResponse(VitaminCompareRequest request) {
+    public VitaminCompareResponse compare(VitaminCompareRequest request) {
         Map<String, VitaminDocument> vitaminMap = vitaminService.getByIds(
                 Set.of(request.getFirstId(), request.getSecondId()));
 
         VitaminDocument firstElement = vitaminMap.get(request.getFirstId());
         VitaminDocument secondElement = vitaminMap.get(request.getSecondId());
 
-        List<CompareRow> vitaminContentCompareRows = compare(firstElement.getVitaminContent(),
-                secondElement.getVitaminContent());
+        Map<ContentTypeEnum, Set<String>> contentEnumMap = new EnumMap<>(ContentTypeEnum.class);
+        for (ContentTypeEnum contentTypeEnum : ContentTypeEnum.values()) {
+            contentEnumMap.put(contentTypeEnum, new HashSet<>());
+        }
+        Map<String, Content> firstElementContentMap = new HashMap<>();
+        Map<String, Content>  secondElementContentMap = new HashMap<>();
 
-        List<CompareRow> mineralContentCompareRows = compare(firstElement.getMineralContent(),
-                secondElement.getMineralContent());
+        if (firstElement.getVitaminContent() != null) {
+            contentEnumMap.put(ContentTypeEnum.VITAMIN_CONTENT,
+                    firstElement.getVitaminContent().stream().map(Content::getName).collect(Collectors.toSet()));
+            firstElementContentMap.putAll(firstElement.getVitaminContent().stream()
+                    .collect(Collectors.toMap(Content::getName, Function.identity())));
+        }
+        if (firstElement.getMineralContent() != null) {
+            contentEnumMap.put(ContentTypeEnum.MINERAL_CONTENT,
+                    firstElement.getMineralContent().stream().map(Content::getName).collect(Collectors.toSet()));
+            firstElementContentMap.putAll(firstElement.getMineralContent().stream()
+                    .collect(Collectors.toMap(Content::getName, Function.identity())));
+        }
+        if (firstElement.getOtherContent() != null) {
+            contentEnumMap.put(ContentTypeEnum.OTHER_CONTENT,
+                    firstElement.getOtherContent().stream().map(Content::getName).collect(Collectors.toSet()));
+            firstElementContentMap.putAll(firstElement.getOtherContent().stream()
+                    .collect(Collectors.toMap(Content::getName, Function.identity())));
+        }
 
-        List<CompareRow> otherContentCompareRows = compare(firstElement.getOtherContent(),
-                secondElement.getOtherContent());
+        if (secondElement.getVitaminContent() != null) {
+            contentEnumMap.get(ContentTypeEnum.VITAMIN_CONTENT).addAll(
+                    secondElement.getVitaminContent().stream().map(Content::getName).collect(Collectors.toSet()));
+            secondElementContentMap.putAll(secondElement.getVitaminContent().stream()
+                    .collect(Collectors.toMap(Content::getName, Function.identity())));
+        }
+        if (secondElement.getMineralContent() != null) {
+            contentEnumMap.get(ContentTypeEnum.MINERAL_CONTENT).addAll(
+                    secondElement.getMineralContent().stream().map(Content::getName).collect(Collectors.toSet()));
+            secondElementContentMap.putAll(secondElement.getMineralContent().stream()
+                    .collect(Collectors.toMap(Content::getName, Function.identity())));
+        }
+        if (secondElement.getOtherContent() != null) {
+            contentEnumMap.get(ContentTypeEnum.OTHER_CONTENT).addAll(
+                    secondElement.getOtherContent().stream().map(Content::getName).collect(Collectors.toSet()));
+            secondElementContentMap.putAll(secondElement.getOtherContent().stream()
+                    .collect(Collectors.toMap(Content::getName, Function.identity())));
+        }
 
         VitaminCompareResponse vitaminCompareResponse = new VitaminCompareResponse();
-        vitaminCompareResponse.setCompareResults(List.of(new ContentCompare(VITAMIN_CONTENT, vitaminContentCompareRows),
-                new ContentCompare(MINERAL_CONTENT, mineralContentCompareRows),
-                new ContentCompare(OTHER_CONTENT, otherContentCompareRows)));
+        vitaminCompareResponse.setCompareResults(new ArrayList<>());
+        Set<String> comparedContentNames = new HashSet<>();
+        for (ContentTypeEnum contentTypeEnum :
+                List.of(ContentTypeEnum.VITAMIN_CONTENT, ContentTypeEnum.MINERAL_CONTENT, ContentTypeEnum.OTHER_CONTENT)) {
+            List<CompareRow> compareRows = new ArrayList<>();
+            Set<String> vitaminContentNames = contentEnumMap.get(contentTypeEnum) == null
+                    ? new HashSet<>() : contentEnumMap.get(contentTypeEnum);
+            for (String key : vitaminContentNames) {
+                if (comparedContentNames.contains(key)) {
+                    continue;
+                }
+                Content firstVitaminContent = getContentWithNullControl(firstElementContentMap, key);
+                Content secondElementContent = getContentWithNullControl(secondElementContentMap, key);
+                compareRows.add(new CompareRow(key, compareElements(firstVitaminContent, secondElementContent)));
+                comparedContentNames.add(key);
+            }
+            vitaminCompareResponse.getCompareResults().add(new ContentCompare(contentTypeEnum.getTitle(), compareRows));
+        }
 
         CompareHeader firstHeader = new CompareHeader();
         firstHeader.setName(firstElement.getTitle());
@@ -59,35 +111,6 @@ public class VitaminCompareService {
         vitaminCompareResponse.setCompareHeaders(List.of(firstHeader, secondHeader));
 
         return vitaminCompareResponse;
-    }
-
-    private List<CompareRow> compare(List<Content> firstContents, List<Content> secondContents) {
-        if (CollectionUtils.isEmpty(firstContents)) {
-            firstContents = new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(secondContents)) {
-            secondContents = new ArrayList<>();
-        }
-
-        Map<String, Content> firstVitaminContentMap = firstContents.stream()
-                .collect(Collectors.toMap(Content::getName, Function.identity()));
-
-        Map<String, Content> secondVitaminContentMap = secondContents.stream()
-                .collect(Collectors.toMap(Content::getName, Function.identity()));
-
-        Set<String> allVitaminContentKeys = new HashSet<>(firstVitaminContentMap.keySet());
-        allVitaminContentKeys.addAll(secondVitaminContentMap.keySet());
-
-        List<CompareRow> compareRows = new ArrayList<>();
-        for (String key : allVitaminContentKeys) {
-            Content firstContent = getContentWithNullControl(firstVitaminContentMap, key);
-            Content secondContent = getContentWithNullControl(secondVitaminContentMap, key);
-
-            List<CompareElement> compareElements = compareElements(firstContent, secondContent);
-            compareRows.add(new CompareRow(key, compareElements));
-        }
-
-        return compareRows;
     }
 
     private static List<CompareElement> compareElements(Content firstContent, Content secondContent) {
