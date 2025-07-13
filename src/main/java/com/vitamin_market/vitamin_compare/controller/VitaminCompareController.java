@@ -18,6 +18,6 @@ public class VitaminCompareController {
 
     @PostMapping("/compare")
     public VitaminCompareResponse compare(@RequestBody VitaminCompareRequest request) {
-        return vitaminCompareService.getVitaminCompareResponse(request);
+        return vitaminCompareService.compare(request);
     }
 }
