@@ -13,6 +13,7 @@ public class VitaminDto {
     private String id;
     private List<Content> vitaminContent;
     private List<Content> mineralContent;
+    private List<Content> otherContent;
     private String url;
     private String title;
     private String imgUrl;
