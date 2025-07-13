@@ -22,6 +22,7 @@ public class VitaminCompareService {
     private static final String DEFAULT_AMOUNT = "-";
     private static final String VITAMIN_CONTENT = "Vitamin İçeriği";
     private static final String MINERAL_CONTENT = "Mineral İçeriği";
+    private static final String OTHER_CONTENT = "Diğer İçerik";
 
     private final VitaminService vitaminService;
 
@@ -38,9 +39,13 @@ public class VitaminCompareService {
         List<CompareRow> mineralContentCompareRows = compare(firstElement.getMineralContent(),
                 secondElement.getMineralContent());
 
+        List<CompareRow> otherContentCompareRows = compare(firstElement.getOtherContent(),
+                secondElement.getOtherContent());
+
         VitaminCompareResponse vitaminCompareResponse = new VitaminCompareResponse();
         vitaminCompareResponse.setCompareResults(List.of(new ContentCompare(VITAMIN_CONTENT, vitaminContentCompareRows),
-                new ContentCompare(MINERAL_CONTENT, mineralContentCompareRows)));
+                new ContentCompare(MINERAL_CONTENT, mineralContentCompareRows),
+                new ContentCompare(OTHER_CONTENT, otherContentCompareRows)));
 
         CompareHeader firstHeader = new CompareHeader();
         firstHeader.setName(firstElement.getTitle());
